@@ -1,0 +1,25 @@
+name: build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Restore
+        run: dotnet restore Umbra.AetherFM.sln
+      - name: Build Release
+        run: dotnet build Umbra.AetherFM.sln -c Release --no-restore
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Umbra.AetherFM
+          path: Umbra.AetherFM/out/Release/*
+
+

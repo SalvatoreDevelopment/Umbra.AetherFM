@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+
+    <!-- Local runtime paths -->
+    <DalamudLibPath>$(APPDATA)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+    <!-- Pick the first installed Umbra version directory -->
+    <UmbraLibBase>$(APPDATA)\XIVLauncher\installedPlugins\Umbra\</UmbraLibBase>
+    <UmbraLibPath>$([System.IO.Directory]::GetDirectories('$(UmbraLibBase)')[0])\</UmbraLibPath>
+
+    <OutputPath>$(MSBuildProjectDirectory)\bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Umbra core -->
+    <Reference Include="Umbra">
+      <HintPath>$(UmbraLibPath)Umbra.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Umbra.Common">
+      <HintPath>$(UmbraLibPath)Umbra.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Una drawing (needed for Node/UI primitives) -->
+    <Reference Include="Una.Drawing">
+      <HintPath>$(UmbraLibPath)Una.Drawing.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Dalamud + structs -->
+    <Reference Include="Dalamud">
+      <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs">
+      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Copy output ready for Umbra Add plugin -->
+  <Target Name="PostBuild" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\out\Release" />
+    <Copy SourceFiles="$(OutputPath)Umbra.AetherFM.dll" DestinationFolder="$(MSBuildProjectDirectory)\out\Release" />
+    <Copy SourceFiles="$(OutputPath)Umbra.AetherFM.pdb" DestinationFolder="$(MSBuildProjectDirectory)\out\Release" Condition="Exists('$(OutputPath)Umbra.AetherFM.pdb')" />
+  </Target>
+</Project>
+
+

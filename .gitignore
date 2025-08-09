@@ -1,0 +1,46 @@
+# .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.DotSettings.user
+_ReSharper.Caches/
+
+# Tests / Coverage
+TestResult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# Packages / Artifacts
+*.nupkg
+*.snupkg
+packages/
+
+# Publish / Dist
+**/publish/
+**/dist/
+
+# Build artifacts
+**/out/
+**/*.pdb
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+node_modules/
+
+# Secrets (if any)
+*.env
+*.env.local
+
+
