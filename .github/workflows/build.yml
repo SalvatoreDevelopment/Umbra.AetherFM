@@ -17,52 +17,30 @@ jobs:
         with:
           dotnet-version: 9.0.x
       
-      - name: Download Umbra DLLs
+      - name: Verify required DLLs
         shell: pwsh
         run: |
-          try {
-            # Create lib directory
-            if (!(Test-Path "lib")) {
-              New-Item -ItemType Directory -Path "lib" -Force
+          Write-Host "Checking for required DLL files in lib directory..."
+          $requiredDlls = @("Umbra.dll", "Umbra.Common.dll", "Una.Drawing.dll")
+          $missingDlls = @()
+          
+          foreach ($dll in $requiredDlls) {
+            if (Test-Path "lib\$dll") {
+              Write-Host "✓ Found $dll"
+            } else {
+              Write-Host "✗ Missing $dll"
+              $missingDlls += $dll
             }
-            
-            Write-Host "Downloading latest Umbra release..."
-            
-            # Get latest Umbra release
-            $response = Invoke-RestMethod -Uri "https://api.github.com/repos/una-xiv/Umbra/releases/latest"
-            $latestUmbra = $response.tag_name
-            Write-Host "Latest Umbra version: $latestUmbra"
-            
-            # Download Umbra
-            $umbraUrl = "https://github.com/una-xiv/Umbra/releases/download/$latestUmbra/Umbra-$latestUmbra.zip"
-            Write-Host "Downloading from: $umbraUrl"
-            
-            Invoke-WebRequest -Uri $umbraUrl -OutFile "umbra.zip" -UseBasicParsing
-            Write-Host "Download completed"
-            
-            # Extract
-            Write-Host "Extracting..."
-            Expand-Archive -Path "umbra.zip" -DestinationPath "umbra_temp" -Force
-            
-            # Copy required DLLs
-            Write-Host "Copying DLLs..."
-            Copy-Item "umbra_temp\Umbra.dll" "lib\" -ErrorAction Stop
-            Copy-Item "umbra_temp\Umbra.Common.dll" "lib\" -ErrorAction Stop
-            Copy-Item "umbra_temp\Una.Drawing.dll" "lib\" -ErrorAction Stop
-            
-            # Cleanup
-            Remove-Item "umbra.zip" -Force
-            Remove-Item "umbra_temp" -Recurse -Force
-            
-            # List what we have
-            Write-Host "Files in lib directory:"
-            Get-ChildItem "lib\" | ForEach-Object { Write-Host "  $($_.Name)" }
-            
-          } catch {
-            Write-Error "Error downloading Umbra DLLs: $($_.Exception.Message)"
-            Write-Host "Stack trace: $($_.ScriptStackTrace)"
+          }
+          
+          if ($missingDlls.Count -gt 0) {
+            Write-Error "Missing required DLL files: $($missingDlls -join ', ')"
+            Write-Host "Please ensure all required DLL files are present in the lib/ directory before building."
+            Write-Host "Required files: Umbra.dll, Umbra.Common.dll, Una.Drawing.dll"
             exit 1
           }
+          
+          Write-Host "All required DLL files are present. Proceeding with build..."
       
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_NAME }}
