@@ -21,7 +21,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Checking for required DLL files in lib directory..."
-          $requiredDlls = @("Umbra.dll", "Umbra.Common.dll", "Una.Drawing.dll")
+          $requiredDlls = @("Umbra.dll", "Umbra.Common.dll", "Una.Drawing.dll", "Dalamud.dll", "FFXIVClientStructs.dll")
           $missingDlls = @()
           
           foreach ($dll in $requiredDlls) {
@@ -36,7 +36,8 @@ jobs:
           if ($missingDlls.Count -gt 0) {
             Write-Error "Missing required DLL files: $($missingDlls -join ', ')"
             Write-Host "Please ensure all required DLL files are present in the lib/ directory before building."
-            Write-Host "Required files: Umbra.dll, Umbra.Common.dll, Una.Drawing.dll"
+            Write-Host "Required files: Umbra.dll, Umbra.Common.dll, Una.Drawing.dll, Dalamud.dll, FFXIVClientStructs.dll"
+            Write-Host "You can download Dalamud DLLs from: https://github.com/goatcorp/Dalamud/releases"
             exit 1
           }
           
