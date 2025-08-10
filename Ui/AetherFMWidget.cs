@@ -3,6 +3,7 @@ using Umbra.AetherFM.Services;
 using Umbra.Widgets;
 using Umbra.Common;
 using Dalamud.Interface;
+
 namespace Umbra.AetherFM.Ui;
 
 /// <summary>
@@ -51,7 +52,6 @@ internal sealed class AetherFMWidget(
                 if (!string.IsNullOrEmpty(url)) _lastUrl = url;
                 var name = _ipc.GetCurrentStation();
                 if (!string.IsNullOrEmpty(name)) _lastName = name;
-                // clear any local caches if needed (no-op)
                 return;
             }
 
@@ -195,6 +195,4 @@ internal sealed class AetherFMWidget(
         SetText(label);
         SetDisabled(!ready);
     }
-}
-
-
+} 

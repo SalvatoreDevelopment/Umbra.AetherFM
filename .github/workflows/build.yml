@@ -7,19 +7,23 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      SOLUTION_NAME: Umbra.AetherFM.sln
+      RELEASE_DIR: Umbra.AetherFM/out/Release
+      RELEASE_NAME: Umbra.AetherFM
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
       - name: Restore
-        run: dotnet restore Umbra.AetherFM.sln
+        run: dotnet restore ${{ env.SOLUTION_NAME }}
       - name: Build Release
-        run: dotnet build Umbra.AetherFM.sln -c Release --no-restore
+        run: dotnet build ${{ env.SOLUTION_NAME }} -c Release --no-restore
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Umbra.AetherFM
-          path: Umbra.AetherFM/out/Release/*
+          name: ${{ env.RELEASE_NAME }}
+          path: ${{ env.RELEASE_DIR }}/*
 
 
