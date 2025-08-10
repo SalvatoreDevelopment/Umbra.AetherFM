@@ -9,37 +9,38 @@
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
 
-    <!-- Local runtime paths -->
+    <!-- Local runtime paths - only used for local development -->
     <DalamudLibPath>$(APPDATA)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
     <!-- Pick the first installed Umbra version directory -->
     <UmbraLibBase>$(APPDATA)\XIVLauncher\installedPlugins\Umbra\</UmbraLibBase>
-    <UmbraLibPath>$([System.IO.Directory]::GetDirectories('$(UmbraLibBase)')[0])\</UmbraLibPath>
+    <UmbraLibPath Condition="Exists('$(UmbraLibBase)')">$([System.IO.Directory]::GetDirectories('$(UmbraLibBase)')[0])\</UmbraLibPath>
+    <UmbraLibPath Condition="!Exists('$(UmbraLibBase)')">$(MSBuildProjectDirectory)\lib\</UmbraLibPath>
 
     <OutputPath>$(MSBuildProjectDirectory)\bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Umbra core -->
-    <Reference Include="Umbra">
+    <!-- Umbra core - only include if local installation exists or lib folder exists -->
+    <Reference Include="Umbra" Condition="Exists('$(UmbraLibPath)Umbra.dll')">
       <HintPath>$(UmbraLibPath)Umbra.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="Umbra.Common">
+    <Reference Include="Umbra.Common" Condition="Exists('$(UmbraLibPath)Umbra.Common.dll')">
       <HintPath>$(UmbraLibPath)Umbra.Common.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- Una drawing (needed for Node/UI primitives) -->
-    <Reference Include="Una.Drawing">
+    <Reference Include="Una.Drawing" Condition="Exists('$(UmbraLibPath)Una.Drawing.dll')">
       <HintPath>$(UmbraLibPath)Una.Drawing.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
-    <!-- Dalamud + structs -->
-    <Reference Include="Dalamud">
+    <!-- Dalamud + structs - only include if local installation exists -->
+    <Reference Include="Dalamud" Condition="Exists('$(DalamudLibPath)Dalamud.dll')">
       <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="FFXIVClientStructs">
+    <Reference Include="FFXIVClientStructs" Condition="Exists('$(DalamudLibPath)FFXIVClientStructs.dll')">
       <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
       <Private>false</Private>
     </Reference>

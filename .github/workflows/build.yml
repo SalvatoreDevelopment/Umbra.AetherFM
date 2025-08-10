@@ -16,6 +16,33 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
+      
+      - name: Download Umbra DLLs
+        run: |
+          # Create lib directory
+          mkdir -p lib
+          
+          # Download latest Umbra release
+          $latestUmbra = (Invoke-RestMethod -Uri "https://api.github.com/repos/una-xiv/Umbra/releases/latest").tag_name
+          Write-Host "Downloading Umbra $latestUmbra"
+          
+          # Download and extract Umbra
+          $umbraUrl = "https://github.com/una-xiv/Umbra/releases/download/$latestUmbra/Umbra-$latestUmbra.zip"
+          Invoke-WebRequest -Uri $umbraUrl -OutFile "umbra.zip"
+          Expand-Archive -Path "umbra.zip" -DestinationPath "umbra_temp" -Force
+          
+          # Copy required DLLs
+          Copy-Item "umbra_temp\Umbra.dll" "lib\"
+          Copy-Item "umbra_temp\Umbra.Common.dll" "lib\"
+          Copy-Item "umbra_temp\Una.Drawing.dll" "lib\"
+          
+          # Cleanup
+          Remove-Item "umbra.zip"
+          Remove-Item "umbra_temp" -Recurse -Force
+          
+          # List what we have
+          Get-ChildItem "lib\"
+      
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_NAME }}
       - name: Build Release
