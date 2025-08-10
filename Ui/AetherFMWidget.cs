@@ -37,140 +37,335 @@ internal sealed class AetherFMWidget(
 
     protected override void OnLoad()
     {
-        // Instantiate IPC when the framework is ready
-        _ipc = new AetherFMIpc(Framework.DalamudPlugin);
-
-        // Prime the last known station URL from the current source (if any)
-        _lastUrl = _ipc.GetCurrentStationUrl();
-
-        // Update cached station whenever status becomes Playing
-        _ipc.SubscribeStatusChanged(s =>
+        try
         {
-            if (string.Equals(s, "Playing", StringComparison.OrdinalIgnoreCase))
-            {
-                var url = _ipc.GetCurrentStationUrl();
-                if (!string.IsNullOrEmpty(url)) _lastUrl = url;
-                var name = _ipc.GetCurrentStation();
-                if (!string.IsNullOrEmpty(name)) _lastName = name;
-                return;
-            }
+            Console.WriteLine("[AetherFMWidget] Initializing AetherFM Widget");
+            
+            // Instantiate IPC when the framework is ready
+            _ipc = new AetherFMIpc(Framework.DalamudPlugin);
 
-            if (string.Equals(s, "Stopped", StringComparison.OrdinalIgnoreCase))
-            {
-                // Never auto-resume on Stopped; only user action can start playback
-                return;
-            }
-        });
+            // Prime the last known station URL from the current source (if any)
+            _lastUrl = _ipc.GetCurrentStationUrl();
+            Console.WriteLine($"[AetherFMWidget] Initial station URL: {_lastUrl ?? "null"}");
 
-        // Rebuild menu when popup opens (refresh local cache first)
-        Popup.OnPopupOpen += () =>
+            // Update cached station whenever status becomes Playing
+            _ipc.SubscribeStatusChanged(s =>
+            {
+                try
+                {
+                    if (string.Equals(s, "Playing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var url = _ipc.GetCurrentStationUrl();
+                        if (!string.IsNullOrEmpty(url)) 
+                        {
+                            _lastUrl = url;
+                            Console.WriteLine($"[AetherFMWidget] Station started playing: {url}");
+                        }
+                        
+                        var name = _ipc.GetCurrentStation();
+                        if (!string.IsNullOrEmpty(name)) 
+                        {
+                            _lastName = name;
+                            Console.WriteLine($"[AetherFMWidget] Station name updated: {name}");
+                        }
+                        return;
+                    }
+
+                    if (string.Equals(s, "Stopped", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("[AetherFMWidget] Station stopped");
+                        // Never auto-resume on Stopped; only user action can start playback
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[AetherFMWidget] Error in status change callback for status {s}: {ex.Message}");
+                }
+            });
+
+            // Rebuild menu when popup opens (refresh local cache first)
+            Popup.OnPopupOpen += () =>
+            {
+                try
+                {
+                    if (_ipc is null) return;
+                    _lastUrl  = _ipc.GetCurrentStationUrl();
+                    _lastName = _ipc.GetCurrentStation();
+                    Console.WriteLine($"[AetherFMWidget] Popup opened, refreshed cache - URL: {_lastUrl}, Name: {_lastName}");
+                    BuildPopup();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[AetherFMWidget] Error refreshing popup cache: {ex.Message}");
+                }
+            };
+            
+            Console.WriteLine("[AetherFMWidget] AetherFM Widget initialized successfully");
+        }
+        catch (Exception ex)
         {
-            if (_ipc is null) return;
-            _lastUrl  = _ipc.GetCurrentStationUrl();
-            _lastName = _ipc.GetCurrentStation();
-            BuildPopup();
-        };
+            Console.WriteLine($"[AetherFMWidget] Failed to initialize AetherFM Widget: {ex.Message}");
+            throw;
+        }
     }
 
     private void BuildPopup(bool? forceIsPlaying = null)
     {
-        if (_ipc is null) return;
-
-        Popup.Clear();
-
-        var state = _ipc.GetStateUtc();
-        var isPlaying = forceIsPlaying ?? state.Status.Equals("Playing", StringComparison.OrdinalIgnoreCase);
-
-        Popup.Add(new MenuPopup.Button(isPlaying ? "Stop" : "Play") {
-            Icon    = isPlaying ? FontAwesomeIcon.Stop : FontAwesomeIcon.Play,
-            ClosePopupOnClick = false,
-            OnClick = () =>
+        try
+        {
+            if (_ipc is null)
             {
-                if (_ipc is null) return;
-                if (_ipc.TogglePlayStop()) { BuildPopup(!isPlaying); return; }
-                if (!isPlaying && _ipc.ResumeLast()) { BuildPopup(true); return; }
-                // No further fallbacks by design
-                BuildPopup(isPlaying);
+                Console.WriteLine("[AetherFMWidget] Cannot build popup: IPC service is null");
+                return;
             }
-        });
 
-        Popup.Add(new MenuPopup.Separator());
-        // Show current volume value
-        var volPct = (int)Math.Round((_ipc.GetVolume()) * 100f);
-        Popup.Add(new MenuPopup.Header($"Volume: {volPct}%"));
+            Popup.Clear();
+            Console.WriteLine("[AetherFMWidget] Building popup menu");
 
-        // Show Volume+ first, then Volume-
-        Popup.Add(new MenuPopup.Button("Volume +") {
-            Icon    = FontAwesomeIcon.VolumeUp,
-            ClosePopupOnClick = false,
-            OnClick = () => { var v = (_ipc?.GetVolume() ?? 0f) + 0.05f; _ipc?.SetVolume(v); BuildPopup(); }
-        });
+            var state = _ipc.GetStateUtc();
+            var isPlaying = forceIsPlaying ?? state.IsPlaying;
+            Console.WriteLine($"[AetherFMWidget] Current state - Status: {state.Status}, IsPlaying: {isPlaying}");
 
-        Popup.Add(new MenuPopup.Button("Volume -") {
-            Icon    = FontAwesomeIcon.VolumeDown,
-            ClosePopupOnClick = false,
-            OnClick = () => { var v = (_ipc?.GetVolume() ?? 0f) - 0.05f; _ipc?.SetVolume(v); BuildPopup(); }
-        });
+            // Play/Stop button
+            Popup.Add(new MenuPopup.Button(isPlaying ? "Stop" : "Play") {
+                Icon    = isPlaying ? FontAwesomeIcon.Stop : FontAwesomeIcon.Play,
+                ClosePopupOnClick = false,
+                OnClick = () =>
+                {
+                    try
+                    {
+                        if (_ipc is null) return;
+                        if (_ipc.TogglePlayStop()) 
+                        { 
+                            Console.WriteLine("[AetherFMWidget] TogglePlayStop successful, rebuilding popup");
+                            BuildPopup(!isPlaying); 
+                            return; 
+                        }
+                        if (!isPlaying && _ipc.ResumeLast()) 
+                        { 
+                            Console.WriteLine("[AetherFMWidget] ResumeLast successful, rebuilding popup");
+                            BuildPopup(true); 
+                            return; 
+                        }
+                        // No further fallbacks by design
+                        Console.WriteLine("[AetherFMWidget] No fallback action available, rebuilding popup with current state");
+                        BuildPopup(isPlaying);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AetherFMWidget] Error in Play/Stop button click handler: {ex.Message}");
+                    }
+                }
+            });
 
-        Popup.Add(new MenuPopup.Separator());
+            Popup.Add(new MenuPopup.Separator());
+            
+            // Volume controls
+            var volPct = state.VolumePercentage;
+            Popup.Add(new MenuPopup.Header($"Volume: {volPct}%"));
 
-        Popup.Add(new MenuPopup.Button("Open Window") {
-            Icon    = FontAwesomeIcon.WindowMaximize,
-            ClosePopupOnClick = false,
-            OnClick = () => { _ipc?.OpenWindow(); BuildPopup(); }
-        });
+            Popup.Add(new MenuPopup.Button("Volume +") {
+                Icon    = FontAwesomeIcon.VolumeUp,
+                ClosePopupOnClick = false,
+                OnClick = () => 
+                { 
+                    try
+                    {
+                        var currentVol = _ipc?.GetVolume() ?? 0f;
+                        var newVol = Math.Clamp(currentVol + 0.05f, 0f, 1f);
+                        if (_ipc?.SetVolume(newVol) == true)
+                        {
+                            Console.WriteLine($"[AetherFMWidget] Volume increased from {currentVol} to {newVol}");
+                        }
+                        BuildPopup(); 
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AetherFMWidget] Error increasing volume: {ex.Message}");
+                    }
+                }
+            });
 
-        Popup.Add(new MenuPopup.Button("Toggle Mini Player") {
-            Icon    = FontAwesomeIcon.CompactDisc,
-            ClosePopupOnClick = false,
-            OnClick = () => { _ipc?.ToggleMiniPlayer(); BuildPopup(); }
-        });
+            Popup.Add(new MenuPopup.Button("Volume -") {
+                Icon    = FontAwesomeIcon.VolumeDown,
+                ClosePopupOnClick = false,
+                OnClick = () => 
+                { 
+                    try
+                    {
+                        var currentVol = _ipc?.GetVolume() ?? 0f;
+                        var newVol = Math.Clamp(currentVol - 0.05f, 0f, 1f);
+                        if (_ipc?.SetVolume(newVol) == true)
+                        {
+                            Console.WriteLine($"[AetherFMWidget] Volume decreased from {currentVol} to {newVol}");
+                        }
+                        BuildPopup(); 
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AetherFMWidget] Error decreasing volume: {ex.Message}");
+                    }
+                }
+            });
 
-        // Favorites section (by name)
-        Popup.Add(new MenuPopup.Separator());
-        Popup.Add(new MenuPopup.Header("Favorites"));
+            Popup.Add(new MenuPopup.Separator());
 
-        var favNames = _ipc.GetFavoriteNames();
-        var currentNameFav = _ipc.GetCurrentStation();
+            // Window controls
+            Popup.Add(new MenuPopup.Button("Open Window") {
+                Icon    = FontAwesomeIcon.WindowMaximize,
+                ClosePopupOnClick = false,
+                OnClick = () => 
+                { 
+                    try
+                    {
+                        if (_ipc?.OpenWindow() == true)
+                        {
+                            Console.WriteLine("[AetherFMWidget] Window opened successfully");
+                        }
+                        BuildPopup(); 
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AetherFMWidget] Error opening window: {ex.Message}");
+                    }
+                }
+            });
 
-        if (favNames.Length == 0)
-        {
-            Popup.Add(new MenuPopup.Header("(empty)"));
-        }
-        else
-        {
-            foreach (var favName in favNames)
+            Popup.Add(new MenuPopup.Button("Toggle Mini Player") {
+                Icon    = FontAwesomeIcon.CompactDisc,
+                ClosePopupOnClick = false,
+                OnClick = () => 
+                { 
+                    try
+                    {
+                        if (_ipc?.ToggleMiniPlayer() == true)
+                        {
+                            Console.WriteLine("[AetherFMWidget] Mini player toggled successfully");
+                        }
+                        BuildPopup(); 
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AetherFMWidget] Error toggling mini player: {ex.Message}");
+                    }
+                }
+            });
+
+            // Favorites section
+            Popup.Add(new MenuPopup.Separator());
+            Popup.Add(new MenuPopup.Header("Favorites"));
+
+            var favNames = _ipc.GetFavoriteNames();
+            var currentNameFav = _ipc.GetCurrentStation();
+            Console.WriteLine($"[AetherFMWidget] Favorites count: {favNames.Length}, Current station: {currentNameFav ?? "null"}");
+
+            if (favNames.Length == 0)
             {
-                var label = string.IsNullOrEmpty(favName) ? "(invalid)" : favName;
-                Popup.Add(new MenuPopup.Button(label) {
-                    Icon = FontAwesomeIcon.Star,
-                    ClosePopupOnClick = false,
-                    OnClick = () => { if (!string.IsNullOrEmpty(favName)) { _ipc.PlayByName(favName); _lastName = favName; BuildPopup(true); } }
-                });
-            }
-        }
-        // Add/Remove current station to/from favorites by URL (IPC supports URL keys)
-        var currentUrlFav = _ipc.GetCurrentStationUrl();
-        if (!string.IsNullOrEmpty(currentUrlFav))
-        {
-            var allUrls = _ipc.GetFavorites();
-            var isFav = Array.Exists(allUrls, u => string.Equals(u, currentUrlFav, StringComparison.OrdinalIgnoreCase));
-            if (!isFav)
-            {
-                Popup.Add(new MenuPopup.Button("Add current to favorites") {
-                    Icon = FontAwesomeIcon.Star,
-                    ClosePopupOnClick = false,
-                    OnClick = () => { if (_ipc.AddFavorite(currentUrlFav)) BuildPopup(isPlaying); }
-                });
+                Popup.Add(new MenuPopup.Header("(empty)"));
             }
             else
             {
-                Popup.Add(new MenuPopup.Button("Remove current from favorites") {
-                    Icon = FontAwesomeIcon.Trash,
-                    ClosePopupOnClick = false,
-                    OnClick = () => { if (_ipc.RemoveFavorite(currentUrlFav)) BuildPopup(isPlaying); }
-                });
+                foreach (var favName in favNames)
+                {
+                    var label = string.IsNullOrEmpty(favName) ? "(invalid)" : favName;
+                    Popup.Add(new MenuPopup.Button(label) {
+                        Icon = FontAwesomeIcon.Star,
+                        ClosePopupOnClick = false,
+                        OnClick = () => 
+                        { 
+                            try
+                            {
+                                if (!string.IsNullOrEmpty(favName)) 
+                                { 
+                                    if (_ipc.PlayByName(favName))
+                                    {
+                                        _lastName = favName;
+                                        Console.WriteLine($"[AetherFMWidget] Started playing favorite: {favName}");
+                                        BuildPopup(true); 
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"[AetherFMWidget] Failed to play favorite: {favName}");
+                                    }
+                                } 
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[AetherFMWidget] Error playing favorite: {favName}: {ex.Message}");
+                            }
+                        }
+                    });
+                }
             }
+            
+            // Add/Remove current station to/from favorites
+            var currentUrlFav = _ipc.GetCurrentStationUrl();
+            if (!string.IsNullOrEmpty(currentUrlFav))
+            {
+                var allUrls = _ipc.GetFavorites();
+                var isFav = Array.Exists(allUrls, u => string.Equals(u, currentUrlFav, StringComparison.OrdinalIgnoreCase));
+                Console.WriteLine($"[AetherFMWidget] Current station URL: {currentUrlFav}, IsFavorite: {isFav}");
+                
+                if (!isFav)
+                {
+                    Popup.Add(new MenuPopup.Button("Add current to favorites") {
+                        Icon = FontAwesomeIcon.Star,
+                        ClosePopupOnClick = false,
+                        OnClick = () => 
+                        { 
+                            try
+                            {
+                                if (_ipc.AddFavorite(currentUrlFav))
+                                {
+                                    Console.WriteLine($"[AetherFMWidget] Added station to favorites: {currentUrlFav}");
+                                    BuildPopup(isPlaying); 
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[AetherFMWidget] Failed to add station to favorites: {currentUrlFav}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[AetherFMWidget] Error adding station to favorites: {currentUrlFav}: {ex.Message}");
+                            }
+                        }
+                    });
+                }
+                else
+                {
+                    Popup.Add(new MenuPopup.Button("Remove current from favorites") {
+                        Icon = FontAwesomeIcon.Trash,
+                        ClosePopupOnClick = false,
+                        OnClick = () => 
+                        { 
+                            try
+                            {
+                                if (_ipc.RemoveFavorite(currentUrlFav))
+                                {
+                                    Console.WriteLine($"[AetherFMWidget] Removed station from favorites: {currentUrlFav}");
+                                    BuildPopup(isPlaying); 
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[AetherFMWidget] Failed to remove station from favorites: {currentUrlFav}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[AetherFMWidget] Error removing station from favorites: {currentUrlFav}: {ex.Message}");
+                            }
+                        }
+                    });
+                }
+            }
+            
+            Console.WriteLine("[AetherFMWidget] Popup menu built successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AetherFMWidget] Error building popup menu: {ex.Message}");
         }
     }
 
@@ -178,21 +373,58 @@ internal sealed class AetherFMWidget(
 
     protected override void OnDraw()
     {
-        var ready = _ipc?.IsAvailable() ?? false;
-        var label = "AetherFM non disponibile";
-
-        if (ready)
+        try
         {
-            var st = _ipc!.GetStatus();
-            var name = _ipc!.GetCurrentStation();
-            if (string.IsNullOrEmpty(name) && st.Equals("Playing", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(_lastName))
-            {
-                name = _lastName;
-            }
-            label = string.IsNullOrEmpty(name) ? st : $"{st}: {name}";
-        }
+            var ready = _ipc?.IsAvailable() ?? false;
+            var label = "AetherFM non disponibile";
 
-        SetText(label);
-        SetDisabled(!ready);
+            if (ready)
+            {
+                var state = _ipc!.GetStateUtc();
+                var name = state.StationName;
+                if (string.IsNullOrEmpty(name) && state.IsPlaying && !string.IsNullOrEmpty(_lastName))
+                {
+                    name = _lastName;
+                    Console.WriteLine($"[AetherFMWidget] Using cached station name: {name}");
+                }
+                label = state.DisplayLabel;
+                Console.WriteLine($"[AetherFMWidget] Widget label updated - Status: {state.Status}, Name: {name}, Label: {label}");
+            }
+            else
+            {
+                Console.WriteLine("[AetherFMWidget] AetherFM not available, widget disabled");
+            }
+
+            SetText(label);
+            SetDisabled(!ready);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AetherFMWidget] Error in OnDraw: {ex.Message}");
+            SetText("Errore AetherFM");
+            SetDisabled(true);
+        }
+    }
+
+    protected override void OnUnload()
+    {
+        try
+        {
+            Console.WriteLine("[AetherFMWidget] Unloading AetherFM Widget");
+            
+            // Clean up IPC service
+            if (_ipc != null)
+            {
+                _ipc.Dispose();
+                _ipc = null;
+                Console.WriteLine("[AetherFMWidget] IPC service disposed");
+            }
+            
+            Console.WriteLine("[AetherFMWidget] AetherFM Widget unloaded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AetherFMWidget] Error during widget unload: {ex.Message}");
+        }
     }
 } 
