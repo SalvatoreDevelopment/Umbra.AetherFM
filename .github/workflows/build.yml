@@ -18,30 +18,51 @@ jobs:
           dotnet-version: 9.0.x
       
       - name: Download Umbra DLLs
+        shell: pwsh
         run: |
-          # Create lib directory
-          mkdir -p lib
-          
-          # Download latest Umbra release
-          $latestUmbra = (Invoke-RestMethod -Uri "https://api.github.com/repos/una-xiv/Umbra/releases/latest").tag_name
-          Write-Host "Downloading Umbra $latestUmbra"
-          
-          # Download and extract Umbra
-          $umbraUrl = "https://github.com/una-xiv/Umbra/releases/download/$latestUmbra/Umbra-$latestUmbra.zip"
-          Invoke-WebRequest -Uri $umbraUrl -OutFile "umbra.zip"
-          Expand-Archive -Path "umbra.zip" -DestinationPath "umbra_temp" -Force
-          
-          # Copy required DLLs
-          Copy-Item "umbra_temp\Umbra.dll" "lib\"
-          Copy-Item "umbra_temp\Umbra.Common.dll" "lib\"
-          Copy-Item "umbra_temp\Una.Drawing.dll" "lib\"
-          
-          # Cleanup
-          Remove-Item "umbra.zip"
-          Remove-Item "umbra_temp" -Recurse -Force
-          
-          # List what we have
-          Get-ChildItem "lib\"
+          try {
+            # Create lib directory
+            if (!(Test-Path "lib")) {
+              New-Item -ItemType Directory -Path "lib" -Force
+            }
+            
+            Write-Host "Downloading latest Umbra release..."
+            
+            # Get latest Umbra release
+            $response = Invoke-RestMethod -Uri "https://api.github.com/repos/una-xiv/Umbra/releases/latest"
+            $latestUmbra = $response.tag_name
+            Write-Host "Latest Umbra version: $latestUmbra"
+            
+            # Download Umbra
+            $umbraUrl = "https://github.com/una-xiv/Umbra/releases/download/$latestUmbra/Umbra-$latestUmbra.zip"
+            Write-Host "Downloading from: $umbraUrl"
+            
+            Invoke-WebRequest -Uri $umbraUrl -OutFile "umbra.zip" -UseBasicParsing
+            Write-Host "Download completed"
+            
+            # Extract
+            Write-Host "Extracting..."
+            Expand-Archive -Path "umbra.zip" -DestinationPath "umbra_temp" -Force
+            
+            # Copy required DLLs
+            Write-Host "Copying DLLs..."
+            Copy-Item "umbra_temp\Umbra.dll" "lib\" -ErrorAction Stop
+            Copy-Item "umbra_temp\Umbra.Common.dll" "lib\" -ErrorAction Stop
+            Copy-Item "umbra_temp\Una.Drawing.dll" "lib\" -ErrorAction Stop
+            
+            # Cleanup
+            Remove-Item "umbra.zip" -Force
+            Remove-Item "umbra_temp" -Recurse -Force
+            
+            # List what we have
+            Write-Host "Files in lib directory:"
+            Get-ChildItem "lib\" | ForEach-Object { Write-Host "  $($_.Name)" }
+            
+          } catch {
+            Write-Error "Error downloading Umbra DLLs: $($_.Exception.Message)"
+            Write-Host "Stack trace: $($_.ScriptStackTrace)"
+            exit 1
+          }
       
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_NAME }}
