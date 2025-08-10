@@ -35,13 +35,21 @@
       <Private>false</Private>
     </Reference>
 
-    <!-- Dalamud + structs - only include if local installation exists -->
+    <!-- Dalamud + structs - only include if local installation exists or lib folder exists -->
     <Reference Include="Dalamud" Condition="Exists('$(DalamudLibPath)Dalamud.dll')">
       <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Dalamud" Condition="!Exists('$(DalamudLibPath)Dalamud.dll') And Exists('$(MSBuildProjectDirectory)\lib\Dalamud.dll')">
+      <HintPath>$(MSBuildProjectDirectory)\lib\Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="FFXIVClientStructs" Condition="Exists('$(DalamudLibPath)FFXIVClientStructs.dll')">
       <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs" Condition="!Exists('$(DalamudLibPath)FFXIVClientStructs.dll') And Exists('$(MSBuildProjectDirectory)\lib\FFXIVClientStructs.dll')">
+      <HintPath>$(MSBuildProjectDirectory)\lib\FFXIVClientStructs.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
